@@ -31,6 +31,8 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
 
     private final String currentSiteName;
 
+    private final Integer site_id;
+
 
     public static boolean isIndexing(){
         return isIndexing;
@@ -80,6 +82,7 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
         sites.addAll(siteNames.getSites());
         startIndexing();
         currentSite = 0;
+        site_id = 1;
         rootSiteName = sites.get(currentSite).getUrl();
         currentSiteName = rootSiteName;
         addSubSite(rootSiteName);
@@ -90,11 +93,13 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
         currentSiteName = rootSiteName;
         addSubSite(rootSiteName);
         addSubSite("");
+        site_id = currentSite + 1;
     }
 
-    public SiteTree(String rootSiteName, String currentSiteName) {
+    public SiteTree(String rootSiteName, String currentSiteName, Integer site_id) {
         this.rootSiteName = rootSiteName;
         this.currentSiteName = currentSiteName;
+        this.site_id = site_id;
     }
     private static synchronized boolean addSubSite(String subSite){
         return subSites.add(subSite);
@@ -153,17 +158,35 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
             Map<String, Integer> lemmas = parser.collectLemmas(content);
             StringBuilder lemmaBuilder = new StringBuilder();
             StringBuilder indexBuilder = new StringBuilder();
-            for (String lemma : lemmas.keySet()){
-                int id = addLemma(lemma);
+            for (String lemma : lemmas.keySet()) {
                 lemmaBuilder.append((lemmaBuilder.length() == 0 ? "" : ",") +
-                        "('" + id + "', '" + site_id + "', '" +  lemma + "', 1)");
-                indexBuilder.append((indexBuilder.length() == 0 ? "" : ",") +
-                        "('" + pageId.getInt(1) + "', '" +  id + "', '"  + lemmas.get(lemma) + "')");
+                        "('"  + site_id + "', '" + lemma + "', 1)");
             }
-            sql =  "INSERT INTO `lemma`(`id`, `site_id`, `lemma`, `frequency`) VALUES" +
+            sql =  "INSERT INTO `lemma`(`site_id`, `lemma`, `frequency`) VALUES" +
                     lemmaBuilder.toString() +
                     "ON DUPLICATE KEY UPDATE frequency = frequency + 1";
             ConnectionService.connect().createStatement().execute(sql);
+            lemmaBuilder = new StringBuilder();
+            for (String lemma : lemmas.keySet()){
+                lemmaBuilder.append((lemmaBuilder.length() == 0 ? "(" : " OR ") +
+                        "lemma = '" + lemma + "'");
+            }
+            lemmaBuilder.append(");");
+            sql = "SELECT * FROM `lemma` WHERE site_id = '" + site_id + "' AND " + lemmaBuilder;
+            ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
+            Map<String, Integer> lemmaIDs = new TreeMap<>();
+            while (resultSet.next()){
+                lemmaIDs.put(resultSet.getString("lemma"), resultSet.getInt("id"));
+            }
+
+            for (String lemma : lemmas.keySet()){
+//                int id = addLemma(lemma);
+//                lemmaBuilder.append((lemmaBuilder.length() == 0 ? "" : ",") +
+//                        "('" + id + "', '" + site_id + "', '" +  lemma + "', 1)");
+                indexBuilder.append((indexBuilder.length() == 0 ? "" : ",") +
+                        "('" + pageId.getInt(1) + "', '" +  lemmaIDs.get(lemma) + "', '"  + lemmas.get(lemma) + "')");
+            }
+
             sql = "INSERT INTO `lemma_index` (`page_id`, `lemma_id`, `lemma_rank`) VALUES" +
                     indexBuilder.toString();
             ConnectionService.connect().createStatement().execute(sql);
@@ -195,7 +218,7 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
             return null;
         }
 
-        addNewPage(currentSiteName, currentSite + 1, doc);
+        addNewPage(currentSiteName, site_id, doc);
 
         List<SiteTree> taskList = new ArrayList<>();
 
@@ -208,12 +231,12 @@ public class SiteTree extends RecursiveTask<TreeSet<String>> {
             if (element.attr("href").matches(regex1)){
                 s = element.attr("href");
             } else if (element.attr("href").matches(regex2)){
-                s = rootSiteName + "/" + element.attr("href").replaceFirst("/","");
+                s = rootSiteName + (rootSiteName.endsWith("/") ? "" : "/") + element.attr("href").replaceFirst("/","");
             } else {
                 return;
             }
             if (addSubSite(s)){
-                SiteTree task = new SiteTree(rootSiteName, s);
+                SiteTree task = new SiteTree(rootSiteName, s, site_id);
                 synchronized (activeTasks) {
                     activeTasks++;
                 }

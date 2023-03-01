@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 public class SearchData {
     String query;
-    String site;
+    String site = null;
     Integer offset = 0;
     Integer limit = 20;
 }

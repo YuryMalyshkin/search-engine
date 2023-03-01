@@ -156,9 +156,22 @@ public class StatisticsServiceImpl implements StatisticsService {
             Map<String, Integer> lemmas = parser.collectLemmas(text);
             SearchResponse response = new SearchResponse();
             ArrayList<LemmaSQL> lemmasFounded = new ArrayList<>();
+            int site_id = 0;
+            String sql;
+            if (data.getSite() != null){
+                sql = "SELECT * FROM site WHERE url = '" + data.getSite() + "';";
+                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
+                if (resultSet.next()){
+                    site_id = resultSet.getInt("id");
+                }
+            }
             TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = new TreeMap<>();
             for (String lemma : lemmas.keySet()){
-                String sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "';";
+                if (data.getSite() != null) {
+                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "' AND site_id = '" + site_id +"';";
+                } else {
+                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "';";
+                }
                 ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
                 int frequency = 0;
                 ArrayList<Integer> ids = new ArrayList<>();
@@ -191,7 +204,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 for (String lemma : lemmasFrequency.get(frequency).keySet()){
                     ArrayList<Integer> currentIds = new ArrayList<>();
                     for (Integer id : lemmasFrequency.get(frequency).get(lemma)){
-                        String sql = "SELECT * FROM `lemma_index` WHERE lemma_id = " + id + ";";
+                        sql = "SELECT * FROM `lemma_index` WHERE lemma_id = " + id + ";";
                         ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
                         while (resultSet.next()){
                             Integer page_id = resultSet.getInt("page_id");
@@ -225,12 +238,11 @@ public class StatisticsServiceImpl implements StatisticsService {
             response.setCount(pageIds.size());
             for (int i = data.getOffset(); i < Math.min(pageIds.size(), data.getOffset() + data.getLimit()); i++){
                 SearchInfo searchInfo = new SearchInfo();
-
                 searchInfo.setRelevance((float)orderedIds.get(i).getY()/orderedIds.get(0).getY());
-                String sql = "SELECT * FROM `page` WHERE id = '" + orderedIds.get(i).getX() + "';";
+                sql = "SELECT * FROM `page` WHERE id = '" + orderedIds.get(i).getX() + "';";
                 ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
                 if (resultSet.next()){
-                    int site_id = resultSet.getInt("site_id") - 1;
+                    site_id = resultSet.getInt("site_id") - 1;
                     searchInfo.setSite(sites.getSites().get(site_id).getUrl());
                     searchInfo.setSiteName(sites.getSites().get(site_id).getName());
                     String htmlContent = resultSet.getString("content");
