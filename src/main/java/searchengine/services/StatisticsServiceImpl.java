@@ -9,7 +9,6 @@ import searchengine.config.SearchData;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.statistics.*;
-import searchengine.model.LemmaSQL;
 import searchengine.model.Status;
 
 import java.sql.ResultSet;
@@ -148,63 +147,49 @@ public class StatisticsServiceImpl implements StatisticsService {
         return response;
     }
 
-    @Override
-    public SearchResponse search(SearchData data) {
-        String text = data.getQuery();
-        try{
-            PageParser parser = new PageParser();
-            Map<String, Integer> lemmas = parser.collectLemmas(text);
-            SearchResponse response = new SearchResponse();
-            ArrayList<LemmaSQL> lemmasFounded = new ArrayList<>();
-            int site_id = 0;
-            String sql;
-            if (data.getSite() != null){
-                sql = "SELECT * FROM site WHERE url = '" + data.getSite() + "';";
-                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                if (resultSet.next()){
-                    site_id = resultSet.getInt("id");
-                }
-            }
-            TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = new TreeMap<>();
-            for (String lemma : lemmas.keySet()){
-                if (data.getSite() != null) {
-                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "' AND site_id = '" + site_id +"';";
+    private TreeMap<Integer, TreeMap<String,List<Integer>>> findLemmasFrequency (Map<String, Integer> lemmas, int site_id){
+        TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = new TreeMap<>();
+        String sql;
+        try {
+            for (String lemma : lemmas.keySet()) {
+                if (site_id != 0) {
+                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "' AND site_id = '" + site_id + "';";
                 } else {
                     sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "';";
                 }
                 ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
                 int frequency = 0;
                 ArrayList<Integer> ids = new ArrayList<>();
-                while (resultSet.next()){
-                    Integer id = resultSet.getInt("id");
-                    LemmaSQL newLemma = new LemmaSQL();
-                    newLemma.setLemma(resultSet.getString("lemma"));
-                    newLemma.setId(id);
-                    newLemma.setSite_id(resultSet.getInt("site_id"));
-                    newLemma.setFrequency(resultSet.getInt("frequency"));
-                    lemmasFounded.add(newLemma);
+                while (resultSet.next()) {
                     frequency += resultSet.getInt("frequency");
-                    ids.add(id);
+                    ids.add(resultSet.getInt("id"));
                 }
-                if (frequency == 0){
-                    response.setCount(0);
-                    response.setResult(true);
-                    return response;
+                if (frequency == 0) {
+                    return null;
                 }
-                if (!lemmasFrequency.containsKey(frequency)){
-                    TreeMap<String,List<Integer>> lemmaIds = new TreeMap<>();
+                if (!lemmasFrequency.containsKey(frequency)) {
+                    TreeMap<String, List<Integer>> lemmaIds = new TreeMap<>();
                     lemmaIds.put(lemma, ids);
                     lemmasFrequency.put(frequency, lemmaIds);
                 }
                 lemmasFrequency.get(frequency).put(lemma, ids);
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return lemmasFrequency;
+    }
+
+    private ArrayList<Pairs> getSortedPageIds(TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency){
+        ArrayList<Pairs> orderedIds = new ArrayList<>();
+        try{
             ArrayList<Integer> pageIds = new ArrayList<>();
             TreeMap<Integer,Integer> pageRanks = new TreeMap<>();
             for (Integer frequency : lemmasFrequency.keySet()){
                 for (String lemma : lemmasFrequency.get(frequency).keySet()){
                     ArrayList<Integer> currentIds = new ArrayList<>();
                     for (Integer id : lemmasFrequency.get(frequency).get(lemma)){
-                        sql = "SELECT * FROM `lemma_index` WHERE lemma_id = " + id + ";";
+                        String sql = "SELECT * FROM `lemma_index` WHERE lemma_id = " + id + ";";
                         ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
                         while (resultSet.next()){
                             Integer page_id = resultSet.getInt("page_id");
@@ -223,20 +208,51 @@ public class StatisticsServiceImpl implements StatisticsService {
                         pageIds.retainAll(currentIds);
                     }
                     if (pageIds.size() == 0){
-                        response.setResult(true);
-                        response.setCount(0);
-                        return response;
+                        return null;
                     }
                 }
             }
-            ArrayList<Pairs> orderedIds = new ArrayList<>();
             for (int i = 0; i < pageIds.size(); i++)
             {
                 orderedIds.add(new Pairs(pageIds.get(i), pageRanks.get(pageIds.get(i))));
             }
-            orderedIds.sort((Pairs p1, Pairs p2) -> -p1.getY().compareTo(p2.getY()));
-            response.setCount(pageIds.size());
-            for (int i = data.getOffset(); i < Math.min(pageIds.size(), data.getOffset() + data.getLimit()); i++){
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+        orderedIds.sort((Pairs p1, Pairs p2) -> -p1.getY().compareTo(p2.getY()));
+        return  orderedIds;
+    }
+
+    @Override
+    public SearchResponse search(SearchData data) {
+        String text = data.getQuery();
+        try{
+            PageParser parser = new PageParser();
+            Map<String, Integer> lemmas = parser.collectLemmas(text);
+            SearchResponse response = new SearchResponse();
+            int site_id = 0;
+            String sql;
+            if (data.getSite() != null){
+                sql = "SELECT * FROM site WHERE url = '" + data.getSite() + "';";
+                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
+                if (resultSet.next()){
+                    site_id = resultSet.getInt("id");
+                }
+            }
+            TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = findLemmasFrequency(lemmas, site_id);
+            if (lemmasFrequency == null){
+                response.setCount(0);
+                response.setResult(true);
+                return response;
+            }
+            ArrayList<Pairs> orderedIds = getSortedPageIds(lemmasFrequency);
+            if (orderedIds == null){
+                response.setCount(0);
+                response.setResult(true);
+                return response;
+            }
+            response.setCount(orderedIds.size());
+            for (int i = data.getOffset(); i < Math.min(orderedIds.size(), data.getOffset() + data.getLimit()); i++){
                 SearchInfo searchInfo = new SearchInfo();
                 searchInfo.setRelevance((float)orderedIds.get(i).getY()/orderedIds.get(0).getY());
                 sql = "SELECT * FROM `page` WHERE id = '" + orderedIds.get(i).getX() + "';";
@@ -248,11 +264,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                     String htmlContent = resultSet.getString("content");
                     Document doc = Jsoup.parse(htmlContent);
                     Elements elements = doc.select("title");
-                    if (elements.size() > 0) {
-                        searchInfo.setTitle(elements.get(0).text());
-                    } else {
-                        searchInfo.setTitle("");
-                    }
+                    searchInfo.setTitle(elements.size() > 0 ? elements.get(0).text() : "");
                     searchInfo.setSnippet(parser.buildSnippet(lemmas.keySet().toArray(new String[0]), doc.text()));
                     searchInfo.setUri(resultSet.getString("path").replaceFirst(sites.getSites().get(site_id).getUrl(),""));
                     response.addSearchInfo(searchInfo);

@@ -15,6 +15,16 @@ public class LemmaSQL {
     @Column(nullable = false)
     private Integer frequency;
 
+    public LemmaSQL(Integer id, Integer site_id, String lemma, Integer frequency) {
+        this.id = id;
+        this.site_id = site_id;
+        this.lemma = lemma;
+        this.frequency = frequency;
+    }
+
+    public LemmaSQL() {
+    }
+
     public Integer getId() {
         return id;
     }
