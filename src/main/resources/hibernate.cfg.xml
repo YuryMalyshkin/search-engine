@@ -19,9 +19,9 @@
         <!-- Drop and re-create the database schema on startup -->
         <property name="hbm2ddl.auto">validate</property>
 
-        <mapping class="searchengine.model.IndexSQL"></mapping>
-        <mapping class="searchengine.model.LemmaSQL"></mapping>
-        <mapping class="searchengine.model.PageSQL"></mapping>
-        <mapping class="searchengine.model.SiteSQL"></mapping>
+        <mapping class="searchengine.model.Index"></mapping>
+        <mapping class="searchengine.model.Lemma"></mapping>
+        <mapping class="searchengine.model.Page"></mapping>
+        <mapping class="searchengine.model.Site"></mapping>
     </session-factory>
 </hibernate-configuration>

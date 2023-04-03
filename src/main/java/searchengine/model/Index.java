@@ -3,8 +3,8 @@ package searchengine.model;
 import javax.persistence.*;
 
 @Entity
-@Table(name = "lemma_index")
-public class IndexSQL {
+@Table(name = "index")
+public class Index {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -14,6 +14,22 @@ public class IndexSQL {
     private Integer lemma_id;
     @Column(nullable = false)
     private Integer lemma_rank;
+
+    public Index(Integer id, Integer page_id, Integer lemma_id, Integer lemma_rank) {
+        this.id = id;
+        this.page_id = page_id;
+        this.lemma_id = lemma_id;
+        this.lemma_rank = lemma_rank;
+    }
+
+    public Index(Integer page_id, Integer lemma_id, Integer lemma_rank) {
+        this.page_id = page_id;
+        this.lemma_id = lemma_id;
+        this.lemma_rank = lemma_rank;
+    }
+
+    public Index() {
+    }
 
     public Integer getId() {
         return id;

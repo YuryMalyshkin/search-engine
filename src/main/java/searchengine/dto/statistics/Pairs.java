@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.dto.statistics;
 
 
 public class Pairs implements Comparable<Pairs> {

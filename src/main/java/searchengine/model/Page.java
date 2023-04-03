@@ -4,7 +4,7 @@ import javax.persistence.*;
 
 @Entity
 @Table(name = "page", uniqueConstraints = { @UniqueConstraint(columnNames = { "site_id", "path"}) })
-public class PageSQL {
+public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -16,6 +16,16 @@ public class PageSQL {
     private Integer code;
     @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
+
+    public Page(Integer site_id, String path, Integer code, String content) {
+        this.site_id = site_id;
+        this.path = path;
+        this.code = code;
+        this.content = content;
+    }
+
+    public Page() {
+    }
 
     public Integer getId() {
         return id;

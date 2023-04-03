@@ -5,7 +5,7 @@ import java.util.Date;
 
 @Entity
 @Table(name = "site")
-public class SiteSQL {
+public class Site {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;

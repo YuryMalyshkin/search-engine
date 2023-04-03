@@ -4,7 +4,7 @@ import javax.persistence.*;
 
 @Entity
 @Table(name = "lemma", uniqueConstraints = { @UniqueConstraint(columnNames = { "site_id", "lemma"}) })
-public class LemmaSQL {
+public class Lemma {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -15,14 +15,20 @@ public class LemmaSQL {
     @Column(nullable = false)
     private Integer frequency;
 
-    public LemmaSQL(Integer id, Integer site_id, String lemma, Integer frequency) {
+    public Lemma(Integer id, Integer site_id, String lemma, Integer frequency) {
         this.id = id;
         this.site_id = site_id;
         this.lemma = lemma;
         this.frequency = frequency;
     }
 
-    public LemmaSQL() {
+    public Lemma(Integer site_id, String lemma, Integer frequency) {
+        this.site_id = site_id;
+        this.lemma = lemma;
+        this.frequency = frequency;
+    }
+
+    public Lemma() {
     }
 
     public Integer getId() {

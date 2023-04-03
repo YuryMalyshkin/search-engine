@@ -9,9 +9,8 @@ import searchengine.config.SearchData;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.statistics.*;
-import searchengine.model.Status;
+import searchengine.model.*;
 
-import java.sql.ResultSet;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 
@@ -22,16 +21,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final Random random = new Random();
     private static final ForkJoinPool pool = new ForkJoinPool();
     private final SitesList sites;
+    private final ConnectionHibernate connectionHibernate;
 
     @Override
     public StatisticsResponse getStatistics() {
-        String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
-        String[] errors = {
-                "Ошибка индексации: главная страница сайта не доступна",
-                "Ошибка индексации: сайт не доступен",
-                ""
-        };
-
         TotalStatistics total = new TotalStatistics();
         total.setSites(sites.getSites().size());
         total.setIndexing(true);
@@ -43,27 +36,14 @@ public class StatisticsServiceImpl implements StatisticsService {
                 DetailedStatisticsItem item = new DetailedStatisticsItem();
                 item.setName(site.getName());
                 item.setUrl(site.getUrl());
-                String sql = "SELECT COUNT(*) FROM page WHERE site_id =" + (i + 1) + ";";
-                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                int pages = 0;
-                if (resultSet.next()){
-                    pages = resultSet.getInt(1);
-                }
-                sql = "SELECT COUNT(*) FROM lemma WHERE site_id =" + (i + 1) + ";";
-                resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                int lemmas = 0;
-                if (resultSet.next()){
-                    lemmas = resultSet.getInt(1);
-                }
+                int pages = connectionHibernate.countPages(i + 1);
+                int lemmas = connectionHibernate.countLemmas(i + 1);
                 item.setPages(pages);
                 item.setLemmas(lemmas);
-                sql = "SELECT status, status_time, last_error FROM site WHERE id =" + (i + 1) + ";";
-                resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                if (resultSet.next()){
-                    item.setStatus(Status.values()[resultSet.getInt(1)].name());
-                    item.setStatusTime(resultSet.getTime(2).getTime());
-                    item.setError(resultSet.getString(3) == null ? "" : resultSet.getString(3));
-                }
+                searchengine.model.Site site1 = connectionHibernate.getSite(i + 1);
+                item.setStatus(site1.getStatus().name());
+                item.setStatusTime(site1.getStatus_time().getTime());
+                item.setError(site1.getLast_error());
                 total.setPages(total.getPages() + pages);
                 total.setLemmas(total.getLemmas() + lemmas);
                 detailed.add(item);
@@ -71,7 +51,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
 
         StatisticsResponse response = new StatisticsResponse();
         StatisticsData data = new StatisticsData();
@@ -85,11 +64,11 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public ResultResponse startIndexing() {
         ResultResponse response = new ResultResponse();
-        if (SiteTree.isIndexing()){
+        if (SiteTreeBuilder.isIndexing()){
             response.setResult(false);
             response.setError("Индексация уже запущена");
         } else {
-            pool.execute(new SiteTree(sites));
+            pool.execute(new SiteTreeBuilder(sites));
             response.setResult(true);
         }
         return response;
@@ -103,7 +82,8 @@ public class StatisticsServiceImpl implements StatisticsService {
                 try{
                     Document doc;
                     doc = Jsoup.connect(url).get();
-                    SiteTree.updatePage(url, sites.getSites().indexOf(site1) + 1, doc);
+                    SiteTreeBuilder siteTreeBuilder = new SiteTreeBuilder();
+                    siteTreeBuilder.updatePage(url, sites.getSites().indexOf(site1) + 1, doc);
                 }
                 catch (Exception e){
                     e.printStackTrace();
@@ -121,23 +101,15 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public ResultResponse stopIndexing() {
         ResultResponse response = new ResultResponse();
-        if (SiteTree.isIndexing()){
-            SiteTree.stopIndexing();
+        if (SiteTreeBuilder.isIndexing()){
+            SiteTreeBuilder.stopIndexing();
             response.setResult(true);
             for (int i = 0; i<sites.getSites().size(); i++){
-                try{
-                    String sql = "SELECT status FROM site WHERE id =" + (i + 1) + ";";
-                    ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                    if (resultSet.next()){
-                        if (resultSet.getInt(1) == Status.INDEXING.ordinal()){
-                            sql = "UPDATE `site` SET status = '" + Status.FAILED.ordinal() + "' last_error = '" +
-                                    "'Индексация остановлена пользователем'"
-                                    + "' WHERE id = " + (i + 1) + ";";
-                            ConnectionService.connect().createStatement().execute(sql);
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                searchengine.model.Site site = connectionHibernate.getSite(i + 1);
+                if (site.getStatus() == Status.INDEXING){
+                    site.setStatus(Status.FAILED);
+                    site.setLast_error("Индексация остановлена пользователем");
+                    connectionHibernate.updateSite(site);
                 }
             }
         } else {
@@ -149,20 +121,15 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private TreeMap<Integer, TreeMap<String,List<Integer>>> findLemmasFrequency (Map<String, Integer> lemmas, int site_id){
         TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = new TreeMap<>();
-        String sql;
         try {
             for (String lemma : lemmas.keySet()) {
-                if (site_id != 0) {
-                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "' AND site_id = '" + site_id + "';";
-                } else {
-                    sql = "SELECT * FROM lemma WHERE lemma = '" + lemma + "';";
-                }
-                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
+                ArrayList<Lemma> lemmasFound
+                        = (site_id != 0 ? connectionHibernate.getLemmas(lemma, site_id) : connectionHibernate.getLemmas(lemma));
                 int frequency = 0;
                 ArrayList<Integer> ids = new ArrayList<>();
-                while (resultSet.next()) {
-                    frequency += resultSet.getInt("frequency");
-                    ids.add(resultSet.getInt("id"));
+                for (Lemma lemma1 : lemmasFound){
+                    frequency += lemma1.getFrequency();
+                    ids.add(lemma1.getId());
                 }
                 if (frequency == 0) {
                     return null;
@@ -189,11 +156,10 @@ public class StatisticsServiceImpl implements StatisticsService {
                 for (String lemma : lemmasFrequency.get(frequency).keySet()){
                     ArrayList<Integer> currentIds = new ArrayList<>();
                     for (Integer id : lemmasFrequency.get(frequency).get(lemma)){
-                        String sql = "SELECT * FROM `lemma_index` WHERE lemma_id = " + id + ";";
-                        ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                        while (resultSet.next()){
-                            Integer page_id = resultSet.getInt("page_id");
-                            Integer lemma_rank =  resultSet.getInt("lemma_rank");
+                        ArrayList<Index> indices = connectionHibernate.getIndices(id);
+                        for (Index index : indices){
+                            Integer page_id = index.getPage_id();
+                            Integer lemma_rank = index.getLemma_rank();
                             currentIds.add(page_id);
                             if (pageRanks.containsKey(page_id)){
                                 pageRanks.put(page_id, pageRanks.get(page_id) + lemma_rank);
@@ -223,6 +189,35 @@ public class StatisticsServiceImpl implements StatisticsService {
         return  orderedIds;
     }
 
+    private SearchResponse getEmptyResponse(){
+        SearchResponse response = new SearchResponse();
+        response.setCount(0);
+        response.setResult(true);
+        return response;
+    }
+
+    private SearchInfo getSearchInfo(float relevance, String[] lemmas, Page page){
+        SearchInfo searchInfo = new SearchInfo();
+        try{
+            PageParser parser = new PageParser();
+            searchInfo.setRelevance(relevance);
+            int site_id = page.getSite_id() - 1;
+            searchInfo.setSite(sites.getSites().get(site_id).getUrl());
+            searchInfo.setSiteName(sites.getSites().get(site_id).getName());
+            String htmlContent = page.getContent();
+            Document doc = Jsoup.parse(htmlContent);
+            Elements elements = doc.select("title");
+            searchInfo.setTitle(elements.size() > 0 ? elements.get(0).text() : "");
+            searchInfo.setSnippet(parser.buildSnippet(lemmas, doc.text()));
+            searchInfo.setUri(page.getPath().replaceFirst(sites.getSites().get(site_id).getUrl(),""));
+            searchInfo.setSite(sites.getSites().get(site_id).getUrl());
+            searchInfo.setSiteName(sites.getSites().get(site_id).getName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return searchInfo;
+    }
+
     @Override
     public SearchResponse search(SearchData data) {
         String text = data.getQuery();
@@ -231,44 +226,23 @@ public class StatisticsServiceImpl implements StatisticsService {
             Map<String, Integer> lemmas = parser.collectLemmas(text);
             SearchResponse response = new SearchResponse();
             int site_id = 0;
-            String sql;
             if (data.getSite() != null){
-                sql = "SELECT * FROM site WHERE url = '" + data.getSite() + "';";
-                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                if (resultSet.next()){
-                    site_id = resultSet.getInt("id");
-                }
+                site_id = connectionHibernate.getSiteIdByUrl(data.getSite());
             }
             TreeMap<Integer, TreeMap<String,List<Integer>>> lemmasFrequency = findLemmasFrequency(lemmas, site_id);
             if (lemmasFrequency == null){
-                response.setCount(0);
-                response.setResult(true);
-                return response;
+                return getEmptyResponse();
             }
             ArrayList<Pairs> orderedIds = getSortedPageIds(lemmasFrequency);
             if (orderedIds == null){
-                response.setCount(0);
-                response.setResult(true);
-                return response;
+                return getEmptyResponse();
             }
             response.setCount(orderedIds.size());
             for (int i = data.getOffset(); i < Math.min(orderedIds.size(), data.getOffset() + data.getLimit()); i++){
-                SearchInfo searchInfo = new SearchInfo();
-                searchInfo.setRelevance((float)orderedIds.get(i).getY()/orderedIds.get(0).getY());
-                sql = "SELECT * FROM `page` WHERE id = '" + orderedIds.get(i).getX() + "';";
-                ResultSet resultSet = ConnectionService.connect().createStatement().executeQuery(sql);
-                if (resultSet.next()){
-                    site_id = resultSet.getInt("site_id") - 1;
-                    searchInfo.setSite(sites.getSites().get(site_id).getUrl());
-                    searchInfo.setSiteName(sites.getSites().get(site_id).getName());
-                    String htmlContent = resultSet.getString("content");
-                    Document doc = Jsoup.parse(htmlContent);
-                    Elements elements = doc.select("title");
-                    searchInfo.setTitle(elements.size() > 0 ? elements.get(0).text() : "");
-                    searchInfo.setSnippet(parser.buildSnippet(lemmas.keySet().toArray(new String[0]), doc.text()));
-                    searchInfo.setUri(resultSet.getString("path").replaceFirst(sites.getSites().get(site_id).getUrl(),""));
-                    response.addSearchInfo(searchInfo);
-                }
+                Page page = connectionHibernate.getPage(orderedIds.get(i).getX());
+                SearchInfo searchInfo = getSearchInfo((float)orderedIds.get(i).getY()/orderedIds.get(0).getY(),
+                        lemmas.keySet().toArray(new String[0]), page);
+                response.addSearchInfo(searchInfo);
             }
             response.setResult(true);
 
@@ -276,7 +250,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return null;
     }
 }

@@ -2,6 +2,7 @@ package searchengine.services;
 
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
+import searchengine.dto.statistics.Pairs;
 
 import java.io.IOException;
 import java.util.*;
@@ -42,16 +43,28 @@ public class PageParser {
         for (int i = 0; i < lemmasPositions.size() - 1; i++){
             for (int j = Math.max(lemmasPositions.get(i).getY(), 0);
                  j < Math.min(lemmasPositions.get(i).getY() + wordArea + 1, lemmasPositions.get(i + 1).getY() - wordArea); j++){
-                snippet.append(words[j]).append(" ");
+                if (j == lemmasPositions.get(i).getY()){
+                    snippet.append("<b>").append(words[j]).append("</b>").append(" ");
+                } else {
+                    snippet.append(words[j]).append(" ");
+                }
             }
             for (int j = Math.max(lemmasPositions.get(i + 1).getY() - wordArea, 0);
                  j < lemmasPositions.get(i + 1).getY(); j++){
-                snippet.append(words[j]).append(" ");
+                if (j == lemmasPositions.get(i).getY()){
+                    snippet.append("<b>").append(words[j]).append("</b>").append(" ");
+                } else {
+                    snippet.append(words[j]).append(" ");
+                }
             }
         }
         for (int j = Math.max(lemmasPositions.get(lemmasPositions.size() - 1).getY(), 0);
              j < Math.min(lemmasPositions.get(lemmasPositions.size() - 1).getY() + wordArea + 1, words.length); j++){
-            snippet.append(words[j]).append(" ");
+            if (j == lemmasPositions.get(lemmasPositions.size() - 1).getY()){
+                snippet.append("<b>").append(words[j]).append("</b>").append(" ");
+            } else {
+                snippet.append(words[j]).append(" ");
+            }
         }
         return snippet.toString();
     }
@@ -88,8 +101,6 @@ public class PageParser {
                     lemmas.put(normalWord, 1);
                 }
             }
-
-
         }
 
         return lemmas;
