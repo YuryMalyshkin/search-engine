@@ -1,10 +1,10 @@
 package searchengine.services;
 
-import searchengine.config.SearchData;
+import searchengine.dto.SearchData;
 import searchengine.config.Site;
-import searchengine.dto.statistics.ResultResponse;
-import searchengine.dto.statistics.SearchResponse;
-import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.dto.ResultResponse;
+import searchengine.dto.SearchResponse;
+import searchengine.dto.StatisticsResponse;
 
 public interface StatisticsService {
     StatisticsResponse getStatistics();

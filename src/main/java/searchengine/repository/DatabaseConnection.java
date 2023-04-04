@@ -1,5 +1,10 @@
-package searchengine.model;
+package searchengine.repository;
 
+
+import searchengine.model.Index;
+import searchengine.model.Lemma;
+import searchengine.model.Page;
+import searchengine.model.Site;
 
 import java.util.ArrayList;
 import java.util.List;

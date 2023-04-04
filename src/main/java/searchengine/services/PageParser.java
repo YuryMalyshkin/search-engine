@@ -2,7 +2,7 @@ package searchengine.services;
 
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
-import searchengine.dto.statistics.Pairs;
+import searchengine.dto.Pairs;
 
 import java.io.IOException;
 import java.util.*;

@@ -1,9 +1,6 @@
-package searchengine.model;
+package searchengine.repository;
 
-import searchengine.repository.IndexRepository;
-import searchengine.repository.LemmaRepository;
-import searchengine.repository.PageRepository;
-import searchengine.repository.SiteRepository;
+import searchengine.model.*;
 
 import java.sql.Date;
 import java.time.LocalDateTime;

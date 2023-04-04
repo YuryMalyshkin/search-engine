@@ -7,7 +7,7 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.model.ConnectionSQL;
+import searchengine.repository.ConnectionSQL;
 import searchengine.model.Page;
 
 import java.util.*;

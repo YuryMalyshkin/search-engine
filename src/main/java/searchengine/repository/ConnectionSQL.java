@@ -1,5 +1,7 @@
-package searchengine.model;
+package searchengine.repository;
 
+
+import searchengine.model.*;
 
 import java.sql.*;
 import java.time.LocalDateTime;

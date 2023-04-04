@@ -5,11 +5,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
-import searchengine.config.SearchData;
+import searchengine.dto.*;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.dto.statistics.*;
 import searchengine.model.*;
+import searchengine.repository.ConnectionHibernate;
 
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;

@@ -5,11 +5,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import searchengine.config.SearchData;
+import searchengine.dto.SearchData;
 import searchengine.config.Site;
-import searchengine.dto.statistics.ResultResponse;
-import searchengine.dto.statistics.SearchResponse;
-import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.dto.ResultResponse;
+import searchengine.dto.SearchResponse;
+import searchengine.dto.StatisticsResponse;
 import searchengine.services.StatisticsService;
 
 @RestController
