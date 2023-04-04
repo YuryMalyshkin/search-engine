@@ -9,7 +9,7 @@ import searchengine.dto.SearchData;
 import searchengine.config.Site;
 import searchengine.dto.ResultResponse;
 import searchengine.dto.SearchResponse;
-import searchengine.dto.StatisticsResponse;
+import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.StatisticsService;
 
 @RestController
