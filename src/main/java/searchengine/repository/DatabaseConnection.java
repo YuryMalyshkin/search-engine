@@ -8,6 +8,7 @@ import searchengine.model.Site;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public interface DatabaseConnection {
@@ -26,4 +27,5 @@ public interface DatabaseConnection {
     void updateSite(Site site);
     void updateSiteTime(int site_id);
     void setSiteIndexed(int siteId);
+    void addLemmas(Map<String, Integer> lemmas, int site_id, int pageId);
 }

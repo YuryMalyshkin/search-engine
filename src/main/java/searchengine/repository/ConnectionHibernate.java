@@ -26,6 +26,9 @@ public class ConnectionHibernate implements DatabaseConnection{
         this.siteRepository = siteRepository;
         this.indexRepository = indexRepository;
     }
+    public ConnectionHibernate(){
+
+    }
 
     public int countPages(int siteId){
         return pageRepository.countPages(siteId);
@@ -34,16 +37,16 @@ public class ConnectionHibernate implements DatabaseConnection{
         return lemmaRepository.countLemmas(siteId);
     }
     public Site getSite(int siteId){
-        return siteRepository.findById(siteId).get();
+        return siteRepository.findById(siteId).isPresent() ? siteRepository.findById(siteId).get() : null;
     }
     public int getSiteIdByUrl(String siteUrl){
         return siteRepository.getSiteByUrl(siteUrl).get(0).getId();
     }
     public Page getPage(int pageId){
-        return pageRepository.findById(pageId).get();
+        return pageRepository.findById(pageId).isPresent() ? pageRepository.findById(pageId).get() : null;
     }
     public Page getPage(String url){
-        return pageRepository.getPageByUrl(url).get(0);
+        return pageRepository.getPageByUrl(url).isEmpty() ? null : pageRepository.getPageByUrl(url).get(0);
     }
     public ArrayList<Lemma> getLemmas(String lemma) {
         return new ArrayList<>(lemmaRepository.getLemmas(lemma));
@@ -66,35 +69,47 @@ public class ConnectionHibernate implements DatabaseConnection{
         return pageRepository.save(page).getId();
     }
     public void addLemmas(Map<String, Integer> lemmas, int site_id, int pageId){
-        for (String lemma : lemmas.keySet()) {
-            lemmaRepository.updateFrequency(site_id, lemma);
+        for (String word : lemmas.keySet()) {
+            lemmaRepository.updateFrequency(site_id, word);
+//            List<Lemma> list = lemmaRepository.getLemmasFromSite(word, site_id);
+//            if (list.isEmpty()){
+//                Lemma lemma = new Lemma(site_id, word, 1);
+//                lemmaRepository.save(lemma);
+//            } else {
+//                lemmaRepository.updateFrequency(list.get(0).getId());
+//            }
         }
-        ArrayList<Lemma> changedLemmas = new ArrayList<>();
         for (String lemma : lemmas.keySet()) {
             Index index = new Index(pageId, lemmaRepository.getLemmasFromSite(lemma, site_id).get(0).getId(), lemmas.get(lemma));
-            indexRepository.save(index);
+//            indexRepository.save(index);
+            indexRepository.saveIndex(pageId, lemmaRepository.getLemmasFromSite(lemma, site_id).get(0).getId(), lemmas.get(lemma));
         }
 
     }
     public void resetIndex(List<searchengine.config.Site> sites){
-        indexRepository.deleteAll();
-        lemmaRepository.deleteAll();
-        pageRepository.deleteAll();
-        siteRepository.deleteAll();
-        String date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
+        try{
+            indexRepository.truncate();
+            lemmaRepository.truncate();
+            pageRepository.truncate();
+            siteRepository.truncate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+//        String date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
+//        Date date1 = Date.valueOf(date);
         for (searchengine.config.Site site : sites){
             Site site1 = new Site();
             site1.setStatus(Status.INDEXING);
             site1.setUrl(site.getUrl());
             site1.setName(site.getName());
-            site1.setStatus_time(Date.valueOf(date));
+            site1.setStatus_time(LocalDateTime.now());
             site1.setLast_error("");
             siteRepository.save(site1);
         }
     }
     public void updateSite(Site site){
-        String date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(LocalDateTime.now());
-        site.setStatus_time(Date.valueOf(date));
+//        String date = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format();
+        site.setStatus_time(LocalDateTime.now());
         siteRepository.save(site);
     }
     public void updateSiteTime(int site_id){

@@ -1,6 +1,7 @@
 package searchengine.model;
 
 import javax.persistence.*;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity
@@ -14,7 +15,7 @@ public class Site {
     private Status status;
 
     @Column(nullable = false)
-    private Date status_time;
+    private LocalDateTime status_time;
 
     private String last_error;
 
@@ -40,11 +41,11 @@ public class Site {
         this.status = status;
     }
 
-    public Date getStatus_time() {
+    public LocalDateTime getStatus_time() {
         return status_time;
     }
 
-    public void setStatus_time(Date status_time) {
+    public void setStatus_time(LocalDateTime  status_time) {
         this.status_time = status_time;
     }
 

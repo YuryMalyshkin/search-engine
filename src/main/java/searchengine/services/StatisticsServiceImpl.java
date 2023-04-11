@@ -14,7 +14,9 @@ import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.*;
 import searchengine.repository.ConnectionHibernate;
+import searchengine.repository.ConnectionSQL;
 
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ForkJoinPool;
 
@@ -26,6 +28,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private static final ForkJoinPool pool = new ForkJoinPool();
     private final SitesList sites;
     private final ConnectionHibernate connectionHibernate;
+    private final ConnectionSQL connectionSQL = new ConnectionSQL();
 
     @Override
     public StatisticsResponse getStatistics() {
@@ -45,8 +48,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 item.setPages(pages);
                 item.setLemmas(lemmas);
                 searchengine.model.Site site1 = connectionHibernate.getSite(i + 1);
+                if (site1 == null){
+                    continue;
+                }
                 item.setStatus(site1.getStatus().name());
-                item.setStatusTime(site1.getStatus_time().getTime());
+                item.setStatusTime(Timestamp.valueOf(site1.getStatus_time()).getTime());
                 item.setError(site1.getLast_error());
                 total.setPages(total.getPages() + pages);
                 total.setLemmas(total.getLemmas() + lemmas);
@@ -72,7 +78,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             response.setResult(false);
             response.setError("Индексация уже запущена");
         } else {
-            pool.execute(new SiteTreeBuilder(sites));
+            pool.execute(new SiteTreeBuilder(sites, connectionSQL));
             response.setResult(true);
         }
         return response;
@@ -86,7 +92,7 @@ public class StatisticsServiceImpl implements StatisticsService {
                 try{
                     Document doc;
                     doc = Jsoup.connect(url).get();
-                    SiteTreeBuilder siteTreeBuilder = new SiteTreeBuilder();
+                    SiteTreeBuilder siteTreeBuilder = new SiteTreeBuilder(connectionHibernate);
                     siteTreeBuilder.updatePage(url, sites.getSites().indexOf(site1) + 1, doc);
                 }
                 catch (Exception e){

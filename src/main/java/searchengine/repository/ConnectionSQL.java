@@ -59,7 +59,7 @@ public class ConnectionSQL implements DatabaseConnection{
             ResultSet resultSet = ConnectionSQL.connect().createStatement().executeQuery(sql);
             if (resultSet.next()){
                 site.setStatus(Status.values()[resultSet.getInt(1)]);
-                site.setStatus_time(resultSet.getTimestamp(2));
+                site.setStatus_time(resultSet.getTimestamp(2).toLocalDateTime());
                 site.setLast_error(resultSet.getString(3) == null ? "" : resultSet.getString(3));
                 site.setId(siteId);
                 site.setUrl(resultSet.getString(4));
@@ -287,8 +287,10 @@ public class ConnectionSQL implements DatabaseConnection{
 //    }
     public int addPage(Page page){
         try{
-            String sql = "INSERT INTO `page` (`site_id`, `path`, `code`, `content`) VALUES (?,?,?,?);";
-            PreparedStatement pageInsert = ConnectionSQL.connect().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            String sql = "INSERT INTO `page` (`site_id`, `path`, `code`, `content`)"
+            + "VALUES (?,?,?,?);";
+            PreparedStatement pageInsert = ConnectionSQL.connect()
+                    .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
             pageInsert.setInt(1, page.getSite_id());
             pageInsert.setString(2, page.getPath());
             pageInsert.setInt(3, 200);

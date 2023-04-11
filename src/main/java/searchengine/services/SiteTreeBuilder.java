@@ -1,14 +1,17 @@
 package searchengine.services;
 
 
+import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
+import searchengine.repository.ConnectionHibernate;
 import searchengine.repository.ConnectionSQL;
 import searchengine.model.Page;
+import searchengine.repository.DatabaseConnection;
 
 import java.util.*;
 import java.util.concurrent.RecursiveTask;
@@ -33,13 +36,48 @@ public class SiteTreeBuilder extends RecursiveTask<TreeSet<String>> {
 
     private final Integer site_id;
 
-    private final ConnectionSQL connection = new ConnectionSQL();
-
+    //private final ConnectionSQL connection = new ConnectionSQL();
+    private DatabaseConnection connection;
     public SiteTreeBuilder() {
         currentSite = 0;
         site_id = 1;
         rootSiteName = "";
         currentSiteName = rootSiteName;
+    }
+    public SiteTreeBuilder(DatabaseConnection connection) {
+        currentSite = 0;
+        site_id = 1;
+        rootSiteName = "";
+        currentSiteName = rootSiteName;
+        this.connection = connection;
+    }
+    public SiteTreeBuilder(SitesList siteNames, DatabaseConnection connection){
+        this.connection = connection;
+        sites.clear();
+        subSites.clear();
+        sites.addAll(siteNames.getSites());
+        startIndexing();
+        currentSite = 0;
+        site_id = 1;
+        rootSiteName = sites.get(currentSite).getUrl();
+        currentSiteName = rootSiteName;
+        addSubSite(rootSiteName);
+        addSubSite("");
+    }
+    public SiteTreeBuilder(String rootSiteName, DatabaseConnection connection) {
+        this.rootSiteName = rootSiteName;
+        currentSiteName = rootSiteName;
+        addSubSite(rootSiteName);
+        addSubSite("");
+        site_id = currentSite + 1;
+        this.connection = connection;
+    }
+
+    public SiteTreeBuilder(String rootSiteName, String currentSiteName, Integer site_id, DatabaseConnection connection) {
+        this.rootSiteName = rootSiteName;
+        this.currentSiteName = currentSiteName;
+        this.site_id = site_id;
+        this.connection = connection;
     }
 
     public static boolean isIndexing(){
@@ -65,31 +103,7 @@ public class SiteTreeBuilder extends RecursiveTask<TreeSet<String>> {
         return false;
     }
 
-    public SiteTreeBuilder(SitesList siteNames){
-        sites.clear();
-        subSites.clear();
-        sites.addAll(siteNames.getSites());
-        startIndexing();
-        currentSite = 0;
-        site_id = 1;
-        rootSiteName = sites.get(currentSite).getUrl();
-        currentSiteName = rootSiteName;
-        addSubSite(rootSiteName);
-        addSubSite("");
-    }
-    public SiteTreeBuilder(String rootSiteName) {
-        this.rootSiteName = rootSiteName;
-        currentSiteName = rootSiteName;
-        addSubSite(rootSiteName);
-        addSubSite("");
-        site_id = currentSite + 1;
-    }
 
-    public SiteTreeBuilder(String rootSiteName, String currentSiteName, Integer site_id) {
-        this.rootSiteName = rootSiteName;
-        this.currentSiteName = currentSiteName;
-        this.site_id = site_id;
-    }
     private static synchronized boolean addSubSite(String subSite){
         return subSites.add(subSite);
     }
@@ -171,7 +185,7 @@ public class SiteTreeBuilder extends RecursiveTask<TreeSet<String>> {
                 return;
             }
             if (addSubSite(s)){
-                SiteTreeBuilder task = new SiteTreeBuilder(rootSiteName, s, site_id);
+                SiteTreeBuilder task = new SiteTreeBuilder(rootSiteName, s, site_id, connection);
                 synchronized (activeTasks) {
                     activeTasks++;
                 }
@@ -190,7 +204,7 @@ public class SiteTreeBuilder extends RecursiveTask<TreeSet<String>> {
             lemmasID = new HashMap<>();
             if (currentSite < sites.size() - 1) {
                 currentSite++;
-                SiteTreeBuilder task = new SiteTreeBuilder(sites.get(currentSite).getUrl());
+                SiteTreeBuilder task = new SiteTreeBuilder(sites.get(currentSite).getUrl(), connection);
                 task.fork();
                 task.join();
             }
